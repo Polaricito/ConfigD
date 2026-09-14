@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# HyprChange — one-command installer.
+# HyprChange — one-command installer / updater.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
 #
 # - Already installed via pacman? That binary is kept and the start-menu entry
 #   is (re)created for it.
 # - Otherwise the AppImage from the latest build is downloaded to ~/.local/bin
-#   and the start-menu entry + icon are installed.
+#   (always re-downloaded, so re-running this command updates the app).
 # - If FUSE is missing, the AppImage is extracted once so it still runs.
-#
-# Set FORCE_UPDATE=1 to force re-downloading the AppImage.
 set -euo pipefail
 
 OWNER="Polaricito"
@@ -38,14 +36,14 @@ else
     IS_APPIMAGE=1
     mkdir -p "$HOME/.local/bin"
     BIN="$HOME/.local/bin/hyprchange"
-    if [[ "${FORCE_UPDATE:-0}" == "1" ]] || [[ ! -x "$BIN" ]]; then
-        echo "Downloading the HyprChange AppImage…"
-        curl -fLsS "$APPIMAGE_URL" -o "$BIN"
-        chmod +x "$BIN"
-        echo "Saved to $BIN"
-    else
-        echo "HyprChange already installed at $BIN (FORCE_UPDATE=1 to re-download)."
-    fi
+
+    echo "Downloading the latest HyprChange AppImage…"
+    TMP="$HOME/.local/bin/.hyprchange.download.$$"
+    curl -fLsS "$APPIMAGE_URL" -o "$TMP"
+    chmod 755 "$TMP"
+    mv -f "$TMP" "$BIN"        # replaces any stale/read-only copy
+    chmod 755 "$BIN"
+    echo "Saved to $BIN"
 fi
 
 # 2. FUSE-less run when possible.
@@ -64,7 +62,14 @@ fi
 mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/128x128/apps"
 ICON="$HOME/.local/share/icons/hicolor/128x128/apps/hyprchange.png"
 if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$ICON_URL" -o "$ICON" || echo "Icon download skipped — using the bundled one on next app run."
+    ICON_TMP="$HOME/.local/share/icons/hicolor/128x128/apps/.hyprchange.$$"
+    if curl -fsSL "$ICON_URL" -o "$ICON_TMP"; then
+        chmod 644 "$ICON_TMP"
+        mv -f "$ICON_TMP" "$ICON"
+    else
+        rm -f "$ICON_TMP"
+        echo "Icon download skipped — the app re-creates it on its next run."
+    fi
 fi
 
 DESKTOP="$HOME/.local/share/applications/hyprchange.desktop"
@@ -82,7 +87,7 @@ EOF
 
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
-# The element that pays off: remove artifacts of the pre-rename release.
+# Remove artifacts of the pre-rename release.
 rm -f "$HOME/.local/share/applications/hyprset.desktop"
 rm -f "$HOME/.local/share/icons/hicolor/128x128/apps/hyprset.png"
 

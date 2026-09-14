@@ -631,6 +631,11 @@ void MainWindow::installDesktopIntegration() {
     QDir().mkpath(QFileInfo(iconFile).absolutePath());
     QFile::remove(iconFile);
     QFile::copy(logo, iconFile);
+    // Qt resources are read-only; make the installed copy writable again so
+    // future updates can replace it.
+    QFile::setPermissions(iconFile,
+                          QFileDevice::ReadUser | QFileDevice::WriteUser |
+                              QFileDevice::ReadGroup | QFileDevice::ReadOther);
 
     const QString desktopPath =
         QDir::homePath() + "/.local/share/applications/hyprchange.desktop";
