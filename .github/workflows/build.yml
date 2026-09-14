@@ -20,7 +20,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qt6-base-dev qt6-base-dev-tools \
+            qt6-base-dev qt6-base-dev-tools libqt6svg6 \
             cmake build-essential lua5.4 liblua5.4-dev
 
       - name: Configure & build
@@ -54,6 +54,12 @@ jobs:
           # Extra QPA plugin so the app also works under QT_QPA_PLATFORM=offscreen.
           cp /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqoffscreen.so \
              AppDir/usr/plugins/platforms/ 2>/dev/null || true
+
+          # SVG icon-engine plugin (from libqt6svg6): without it every themed
+          # icon lookup fails inside the AppImage and all icons vanish.
+          mkdir -p AppDir/usr/plugins/iconengines
+          cp /usr/lib/x86_64-linux-gnu/qt6/plugins/iconengines/libqsvgicon.so \
+             AppDir/usr/plugins/iconengines/ 2>/dev/null || true
 
           # Qt style plugins (Fusion & friends) are not auto-bundled; the app's
           # theme picker needs them.

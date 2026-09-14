@@ -289,14 +289,30 @@ private:
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_systemStyleName = qApp->style()->objectName();
     m_systemIconTheme = QIcon::themeName();
-    // Make the user's icon themes (and our own installed icon) visible to Qt.
-    const QString userIcons = QDir::homePath() + "/.local/share/icons";
-    QStringList iconPaths = QIcon::themeSearchPaths();
-    if (!iconPaths.contains(userIcons)) {
-        iconPaths.removeAll(userIcons);
-        iconPaths.prepend(userIcons);
-        QIcon::setThemeSearchPaths(iconPaths);
+    // Some runtimes (e.g. AppImage) cannot detect the desktop icon theme, so
+    // QIcon::themeName() comes back empty and every themed lookup fails.
+    // Bootstrap a usable theme before the UI is built so icons resolve.
+    if (m_systemIconTheme.isEmpty()) {
+        const QStringList themes = availableIconThemes();
+        if (!themes.isEmpty()) {
+            m_systemIconTheme = themes.constFirst();
+            QIcon::setThemeName(m_systemIconTheme);
+        }
     }
+    // Make themes in all standard locations visible to Qt. Some runtimes
+    // (e.g. AppImage) fail to add /usr/share/icons, which breaks every themed
+    // lookup; build the list ourselves so resolution is deterministic.
+    QStringList iconPaths;
+    const QStringList roots = {
+        QDir::homePath() + "/.local/share/icons",
+        "/usr/local/share/icons",
+        "/usr/share/icons",
+    };
+    for (const QString &root : roots)
+        if (!iconPaths.contains(root)) iconPaths << root;
+    for (const QString &p : QIcon::themeSearchPaths())
+        if (!iconPaths.contains(p)) iconPaths << p; // keep Qt's extra paths, e.g. :/icons
+    QIcon::setThemeSearchPaths(iconPaths);
 
     const QString logoPath = logoFilePath();
     if (QFileInfo::exists(logoPath)) setWindowIcon(QIcon(logoPath));
@@ -324,6 +340,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             m_iconThemeCombo->setCurrentIndex(idx);
     }
     applyIconTheme(m_iconThemeCombo->currentIndex());
+
+    if (qEnvironmentVariableIsSet("HYPRCHANGE_DEBUG")) {
+        fprintf(stderr, "FINAL theme=%s\n", qPrintable(QIcon::themeName()));
+        for (int i = 0; i < qMin(m_nav->count(), 4); ++i) {
+            fprintf(stderr, "FINAL nav%d name=%s hasThemeIcon=%d null=%d\n", i,
+                    qPrintable(m_navIconThemes.value(i)),
+                    (int)QIcon::hasThemeIcon(m_navIconThemes.value(i)),
+                    (int)m_nav->item(i)->icon().pixmap(22, 22).isNull());
+        }
+    }
 }
 
 static QWidget *makePage(QWidget *content) {
@@ -443,8 +469,20 @@ void MainWindow::buildUi() {
     for (int i = 0; i < m_nav->count() && i < themed.size(); ++i) {
         m_navIconThemes << themed.at(i);
         m_navIconFalls << static_cast<int>(fallbacks[i]);
-        m_nav->item(i)->setIcon(
-            QIcon::fromTheme(themed.at(i), style()->standardIcon(fallbacks[i])));
+    }
+    refreshNavIcons();
+    if (qEnvironmentVariableIsSet("HYPRCHANGE_DEBUG")) {
+        fprintf(stderr, "icon theme=%s QT_ICON_THEME=%s\nXDG_DATA_DIRS=[%s]\nSP=[%s]\n",
+                qPrintable(QIcon::themeName()), qgetenv("QT_ICON_THEME").constData(),
+                qgetenv("XDG_DATA_DIRS").constData(),
+                qPrintable(QIcon::themeSearchPaths().join(" | ")));
+        for (int i = 0; i < qMin(m_nav->count(), 4); ++i) {
+            const QPixmap px = m_nav->item(i)->icon().pixmap(22, 22);
+            fprintf(stderr, "nav%d name=%s hasThemeIcon=%d px=%dx%d null=%d\n", i,
+                    qPrintable(m_navIconThemes.value(i)),
+                    (int)QIcon::hasThemeIcon(m_navIconThemes.value(i)), px.width(),
+                    px.height(), (int)px.isNull());
+        }
     }
     body->addWidget(m_nav);
 
@@ -604,6 +642,7 @@ void MainWindow::applyStyle(const QString &name) {
         p.setColor(QPalette::Light, QColor(90, 90, 90));
         qApp->setPalette(p);
         if (m_status) m_status->setText("Theme: Dark");
+        refreshNavIcons();
         return;
     }
 
@@ -620,6 +659,7 @@ void MainWindow::applyStyle(const QString &name) {
         style = "Fusion";
     }
     if (chosen) qApp->setStyle(chosen);
+    refreshNavIcons();
 
     if (style == "GTK3")
         m_status->setText("GTK theme saved — applies on the next launch (qt6-gtk platform theme).");
@@ -629,11 +669,11 @@ void MainWindow::applyStyle(const QString &name) {
         m_status->setText("Theme: " + style);
 }
 
-void MainWindow::applyIconTheme(int) {
-    const QString name = m_iconThemeCombo->currentData().toString();
-    QIcon::setThemeName(name.isEmpty() ? m_systemIconTheme : name);
-    // Re-apply the themed sidebar icons so the new theme takes effect
-    // immediately; setThemeName alone would leave cached pixmaps in place.
+void MainWindow::refreshNavIcons() {
+    if (!m_nav) return;
+    // Recompute the sidebar icons from the active icon theme. Also regenerates
+    // the standard-icon fallbacks with the current palette so they stay
+    // visible after a style/palette change (e.g. in Dark mode).
     for (int i = 0; i < m_nav->count() && i < m_navIconThemes.size(); ++i) {
         m_nav->item(i)->setIcon(QIcon::fromTheme(
             m_navIconThemes.at(i),
@@ -641,6 +681,12 @@ void MainWindow::applyIconTheme(int) {
                 static_cast<QStyle::StandardPixmap>(m_navIconFalls.at(i)))));
     }
     m_nav->update();
+}
+
+void MainWindow::applyIconTheme(int) {
+    const QString name = m_iconThemeCombo->currentData().toString();
+    QIcon::setThemeName(name.isEmpty() ? m_systemIconTheme : name);
+    refreshNavIcons();
     writePrefs(m_model->configPath() + "/hyprchange-preferences.conf",
                m_themeCombo->currentData().toString(), name);
     if (m_status)

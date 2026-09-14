@@ -53,6 +53,7 @@ private:
     void refreshCustomEditors();
     void applyStyle(const QString &name);
     void applyIconTheme(int index);
+    void refreshNavIcons();
     void installDesktopIntegration();
     void showChangesDialog(const QString &summary);
 
