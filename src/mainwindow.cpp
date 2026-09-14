@@ -307,7 +307,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Re-apply the last picked theme + icon theme, if any.
     QString prefsPath = m_model->configPath() + "/hyprchange-preferences.conf";
-    if (!QFileInfo::exists(prefsPath)) prefsPath = m_model->configPath() + "/hyprset-preferences.conf";
+    if (!QFileInfo::exists(prefsPath)) prefsPath = m_model->configPath() + "/hyprset-preferences.conf"; // pre-rename installs
     const QString savedStyle = prefsValue(prefsPath, "style");
     const QString savedIcons = prefsValue(prefsPath, "icons");
     if (!savedStyle.isEmpty()) {
@@ -577,6 +577,10 @@ void MainWindow::applyIconTheme(int) {
 void MainWindow::installDesktopIntegration() {
     // Make the app visible to docks/taskbars: a per-user .desktop entry plus
     // the icon installed into the user's icon theme directory.
+    // AppImage builds run from a transient mount path, so they skip this and
+    // rely on the desktop entry installed by install.sh.
+    if (qEnvironmentVariableIsSet("APPIMAGE")) return;
+
     const QString logo = logoFilePath();
     if (!QFileInfo::exists(logo)) return;
 
@@ -606,7 +610,7 @@ void MainWindow::installDesktopIntegration() {
                      .toUtf8());
         df.close();
     }
-    // Remove stale entries from the former name.
+    // Remove stale start-menu entries from the former name.
     QFile::remove(QDir::homePath() + "/.local/share/applications/hyprset.desktop");
     QFile::remove(QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/hyprset.png");
 }

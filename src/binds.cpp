@@ -214,7 +214,8 @@ KeybindFile parseKeybinds(const QString &filePath) {
     // "-- HyprChange remap of \"<stockChord>\" ..." markers written by the app
     // link a remapped bind back to its original chord so the merge identity is
     // stable. "-- HyprChange custom of \"<chord>\" ..." marks a duplicated
-    // custom bind. Older "HyprSet" markers are still understood.
+    // custom bind. Markers written before the rename (brand "HyprSet") are
+    // still understood so existing dotfiles keep merging correctly.
     static const QRegularExpression markerRe(
         QStringLiteral("--\\s*(?:HyprSet|HyprChange) (remap|custom copy|custom) of \"([^\"]*)\""));
     QVector<QPair<int, QString>> markers;

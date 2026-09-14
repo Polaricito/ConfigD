@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [ master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ master ]
 
@@ -17,10 +18,78 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             qt6-base-dev qt6-base-dev-tools \
-            cmake build-essential lua5.4 liblua5.4-dev libssl-dev
+            cmake build-essential lua5.4 liblua5.4-dev
 
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure & build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j "$(nproc)"
 
-      - name: Build
-        run: cmake --build build -j "$(nproc)"
+      - name: Bundle AppImage
+        if: github.event_name == 'push'
+        run: |
+          curl -fsSL https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -o linuxdeploy
+          curl -fsSL https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -o linuxdeploy-plugin-qt
+          chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications \
+                   AppDir/usr/share/icons/hicolor/128x128/apps
+          cp build/hyprchange AppDir/usr/bin/
+          cp resources/logo.png AppDir/usr/share/icons/hicolor/128x128/apps/hyprchange.png
+          printf '[Desktop Entry]\nType=Application\nName=HyprChange\nComment=Hyprland settings editor\nExec=hyprchange\nIcon=hyprchange\nTerminal=false\nCategories=Settings;Utility;\n' \
+            > AppDir/usr/share/applications/hyprchange.desktop
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="continuous"
+          fi
+          export VERSION ARCH=x86_64 QT_QPA_PLATFORM=offscreen QMAKE=/usr/bin/qmake6 NO_STRIP=1
+          PATH="$PWD/AppDir/usr/bin:$PATH" ./linuxdeploy \
+            --appimage-extract-and-run --appdir AppDir --plugin qt
+
+          # Extra QPA plugin so the app also works under QT_QPA_PLATFORM=offscreen.
+          cp /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqoffscreen.so \
+             AppDir/usr/plugins/platforms/ 2>/dev/null || true
+
+          PATH="$PWD/AppDir/usr/bin:$PATH" ./linuxdeploy \
+            --appimage-extract-and-run --appdir AppDir --output appimage
+
+      - name: Upload AppImage artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyprchange-appimage
+          path: HyprChange-*-x86_64.AppImage
+
+      - name: Delete previous rolling release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete continuous --yes --cleanup-tag 2>/dev/null || true
+          git push origin :continuous 2>/dev/null || true
+
+      - name: Publish rolling release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: continuous
+          name: HyprChange continuous build (${{ github.sha }})
+          body: |
+            Automated build from the latest push to master.
+
+            Install a single command:
+
+            ```
+            curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
+            ```
+
+            Or download and run the AppImage directly.
+          files: HyprChange-*-x86_64.AppImage
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: HyprChange-*-x86_64.AppImage

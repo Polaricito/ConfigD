@@ -645,7 +645,8 @@ void SettingsModel::reloadHypr() const {
 void SettingsModel::ensureBaseBackup() const {
     // `base/` is the untouched pre-change state, captured once. The backups dir
     // lives inside the tree, so it is excluded from the copy (self-inclusion
-    // made backups exponential before); the legacy HyprSet name is skipped too.
+    // made backups exponential before); the pre-rename backup dir name is
+    // skipped too so old snapshots are never copied into themselves.
     const QString base = m_configDir + "/hyprchange-backups/base";
     if (QFileInfo::exists(base)) return;
     copyRecursively(m_configDir, base, {"hyprchange-backups", "hyprset-backups"});

@@ -23,7 +23,29 @@ and hot-reloads Hyprland so edits apply immediately.
 - Theme & icon pickers (System / Fusion / GTK / KDE Plasma).
 - `--dump` and `--export` CLI helpers for scripts and monitoring.
 
-## Building
+## Install
+
+Install (or refresh) the app and add it to your start menu with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
+```
+
+That either picks up an existing `hyprchange` binary already installed via
+pacman, or downloads the AppImage from the latest build. If FUSE is not
+installed, `sudo pacman -S fuse2` lets the AppImage run, or give the installer
+a hand and it will just extract itself.
+
+The installer also sets up the icon and the `HyprChange` entry in your start
+menu. To update later, run the same command again.
+
+## Manual / AppImage
+
+Every push to `master` is built by CI and published as a rolling release:
+https://github.com/Polaricito/ConfigD/releases/tag/continuous — grab the
+`HyprChange-*-x86_64.AppImage` there, `chmod +x` it and run it.
+
+## Building from source
 
 Requires Qt 6 + CMake. On Arch:
 

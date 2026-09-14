@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     // Apply the persisted theme (GTK / KDE Plasma platform theme, icon theme)
     // before the QApplication exists.
     QFile prefs(appConfigDir() + "/hyprchange-preferences.conf");
-    if (!prefs.exists()) prefs.setFileName(appConfigDir() + "/hyprset-preferences.conf"); // legacy
+    if (!prefs.exists()) prefs.setFileName(appConfigDir() + "/hyprset-preferences.conf"); // pre-rename installs
     if (prefs.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString style, icons;
         for (const QString &raw : QString::fromUtf8(prefs.readAll()).split('\n')) {
