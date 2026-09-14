@@ -30,7 +30,7 @@ and hot-reloads Hyprland so edits apply immediately.
 Install (or refresh) the app and add it to your start menu with one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Polaricito/HyprChange/master/install.sh | bash
 ```
 
 That either picks up an existing `hyprchange` binary already installed via
@@ -44,7 +44,7 @@ menu. To update later, run the same command again.
 ## Manual / AppImage
 
 Every push to `master` is built by CI and published as a rolling release:
-https://github.com/Polaricito/ConfigD/releases/tag/continuous — grab the
+https://github.com/Polaricito/HyprChange/releases/tag/continuous — grab the
 `HyprChange-*-x86_64.AppImage` there, `chmod +x` it and run it.
 
 ## Building from source

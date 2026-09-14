@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # HyprChange — one-command installer / updater.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Polaricito/HyprChange/master/install.sh | bash
 #
 # - Already installed via pacman? That binary is kept and the start-menu entry
 #   is (re)created for it.
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 OWNER="Polaricito"
-REPO="ConfigD"
+REPO="HyprChange"
 BRANCH="master"
 APP="HyprChange"
 

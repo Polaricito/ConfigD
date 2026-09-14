@@ -96,7 +96,7 @@ jobs:
             Install a single command:
 
             ```
-            curl -fsSL https://raw.githubusercontent.com/Polaricito/ConfigD/master/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/Polaricito/HyprChange/master/install.sh | bash
             ```
 
             Or download and run the AppImage directly.
