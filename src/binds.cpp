@@ -211,11 +211,12 @@ KeybindFile parseKeybinds(const QString &filePath) {
 
     const QString text = QString::fromUtf8(f.readAll());
 
-    // "-- HyprSet remap of \"<stockChord>\" ..." markers written by HyprSet link
-    // a remapped bind back to its original chord so the merge identity is stable.
-    // "-- HyprSet custom of \"<chord>\" ..." marks a duplicated custom bind.
+    // "-- HyprChange remap of \"<stockChord>\" ..." markers written by the app
+    // link a remapped bind back to its original chord so the merge identity is
+    // stable. "-- HyprChange custom of \"<chord>\" ..." marks a duplicated
+    // custom bind. Older "HyprSet" markers are still understood.
     static const QRegularExpression markerRe(
-        QStringLiteral("--\\s*HyprSet (remap|custom copy|custom) of \"([^\"]*)\""));
+        QStringLiteral("--\\s*(?:HyprSet|HyprChange) (remap|custom copy|custom) of \"([^\"]*)\""));
     QVector<QPair<int, QString>> markers;
     {
         auto mit = markerRe.globalMatch(text);

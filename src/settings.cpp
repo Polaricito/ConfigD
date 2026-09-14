@@ -327,7 +327,7 @@ QVector<KeyBind> SettingsModel::bindsUsingChord(const QString &chord,
 
 bool SettingsModel::appendCustomKeybinds(const QString &markerLine, const QString &block) {
     QString existing = readFile(customKeybindsPath()).trimmed();
-    const QString header = "-- Managed by HyprSet: keybind remaps (manual edits here are kept).\n";
+    const QString header = "-- Managed by HyprChange: keybind remaps (manual edits here are kept).\n";
     QString content = existing;
     if (content.isEmpty()) content = header + "\n";
     if (!content.endsWith('\n')) content += '\n';
@@ -372,7 +372,7 @@ bool SettingsModel::remapBind(const QString &stockChord, const QString &action,
         bindStmt += QString(", %1").arg(source->options.trimmed());
     bindStmt += ')';
 
-    const QString marker = QString("-- HyprSet remap of \"%1\" \"%2\"")
+    const QString marker = QString("-- HyprChange remap of \"%1\" \"%2\"")
                                .arg(stockChord, source->description.isEmpty()
                                                     ? "no description"
                                                     : source->description);
@@ -404,7 +404,7 @@ bool SettingsModel::addBind(const QString &newChord, const QString &action,
     if (!options.trimmed().isEmpty()) bindStmt += QString(", %1").arg(options.trimmed());
     bindStmt += ')';
 
-    const QString marker = QString("-- HyprSet custom of \"%1\"").arg(newChord);
+    const QString marker = QString("-- HyprChange custom of \"%1\"").arg(newChord);
     if (!appendCustomKeybinds(marker, bindStmt + "\n")) {
         *err = "Could not write " + customKeybindsPath();
         return false;
@@ -422,10 +422,10 @@ bool SettingsModel::resetBind(const QString &stockChord, const QString &action, 
     QStringList out;
     bool removing = false;
     static const QRegularExpression markerRe(
-        QStringLiteral("--\\s*HyprSet (remap|custom copy|custom) of \"([^\"]*)\""));
+        QStringLiteral("--\\s*(?:HyprSet|HyprChange) (remap|custom copy|custom) of \"([^\"]*)\""));
     for (const QString &raw : lines) {
         QString line = raw;
-        if (line.trimmed().startsWith("-- HyprSet ")) {
+        if (line.trimmed().startsWith("-- Hypr") && line.trimmed().contains(" of ")) {
             // stop a removal block at the next marker
             if (removing) { removing = false; }
         }
@@ -541,7 +541,7 @@ bool SettingsModel::writeGeneral(const QList<GeneralEdit> &edits) {
     }
 
     QString content = lua::serializeHlConfigFile(
-        tree, "Managed by HyprSet. This file is loaded after the default hyprland config.\n"
+        tree, "Managed by HyprChange. This file is loaded after the default hyprland config.\n"
               "Change values from the app instead of editing by hand.");
     return writeFile(customGeneralPath(), content);
 }
@@ -585,12 +585,12 @@ bool SettingsModel::writeVariables(const QMap<QString, QString> &varChanges) {
         filtered << name + " = \"" + newVal + "\"";
     }
 
-    // Prepend a header if no HyprSet header is present yet
+    // Prepend a header if no app header is present yet
     bool hasHeader = false;
     for (const QString &line : filtered) {
-        if (line.trimmed().startsWith("-- Managed by HyprSet")) { hasHeader = true; break; }
+        if (line.trimmed().startsWith("-- Managed by Hypr")) { hasHeader = true; break; }
     }
-    QString header = "-- Managed by HyprSet: app launch commands.\n";
+    QString header = "-- Managed by HyprChange: app launch commands.\n";
     QString body = filtered.join('\n').trimmed();
     QString content;
     if (hasHeader) content = body.isEmpty() ? header : body + "\n";
@@ -600,7 +600,7 @@ bool SettingsModel::writeVariables(const QMap<QString, QString> &varChanges) {
 
 bool SettingsModel::writeIdle(int lockSec, int dpmsSec, int suspendSec) {
     QString content =
-        "## Managed by HyprSet (timeouts in seconds)\n\n"
+        "## Managed by HyprChange (timeouts in seconds)\n\n"
         "$lock_cmd = hyprctl dispatch 'hl.dsp.global(\"quickshell:lock\")' & pidof qs quickshell hyprlock || hyprlock\n"
         "$suspend_cmd = systemctl suspend || loginctl suspend\n\n"
         "general {\n"
@@ -643,18 +643,18 @@ void SettingsModel::reloadHypr() const {
 }
 
 void SettingsModel::ensureBaseBackup() const {
-    // `base/` is the untouched pre-change state, captured once. `hyprset-backups`
-    // lives inside the tree, so it is excluded from the copy (self-inclusion made
-    // backups exponential before).
-    const QString base = m_configDir + "/hyprset-backups/base";
+    // `base/` is the untouched pre-change state, captured once. The backups dir
+    // lives inside the tree, so it is excluded from the copy (self-inclusion
+    // made backups exponential before); the legacy HyprSet name is skipped too.
+    const QString base = m_configDir + "/hyprchange-backups/base";
     if (QFileInfo::exists(base)) return;
-    copyRecursively(m_configDir, base, {"hyprset-backups"});
+    copyRecursively(m_configDir, base, {"hyprchange-backups", "hyprset-backups"});
 }
 
 void SettingsModel::commitConfigChanges() {
     // Git-style: store only the files that differ from `base/` under
     // commits/<stamp>/. Replaying a stamp over the base reconstructs that state.
-    const QString backupsDir = m_configDir + "/hyprset-backups";
+    const QString backupsDir = m_configDir + "/hyprchange-backups";
     const QString base = backupsDir + "/base";
     if (!QFileInfo::exists(base)) return;
 
@@ -663,7 +663,8 @@ void SettingsModel::commitConfigChanges() {
     bool any = false;
     const QStringList relFiles = collectRegularFiles(m_configDir);
     for (const QString &rel : relFiles) {
-        if (rel.startsWith("hyprset-backups/")) continue;
+        if (rel.startsWith("hyprchange-backups/") || rel.startsWith("hyprset-backups/"))
+            continue;
         const QString src = m_configDir + "/" + rel;
         if (QFileInfo::exists(base + "/" + rel) && fileContentsSame(src, base + "/" + rel))
             continue;
@@ -702,7 +703,7 @@ bool SettingsModel::exportSnapshot(const QString &destDir, const QString &config
 
 bool SettingsModel::validateLuaSource(const QString &content) {
     if (content.contains('\0')) return false;
-    QTemporaryFile tmp(QLatin1String("/tmp/hyprset-XXXXXX.lua"));
+    QTemporaryFile tmp(QLatin1String("/tmp/hyprchange-XXXXXX.lua"));
     if (!tmp.open()) return false;
     tmp.write(content.toUtf8());
     tmp.flush();

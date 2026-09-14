@@ -84,7 +84,7 @@ static void setWidgetValue(const Bound &b, const QVariant &v);
 static QVariant widgetValue(const Bound &b);
 
 static QString logoFilePath() {
-    return QDir::homePath() + "/Downloads/logo.png";
+    return QStringLiteral(":/logo.png"); // embedded Qt resource
 }
 
 // Read one key=value line from the preferences file (legacy bare lines count
@@ -296,7 +296,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         QIcon::setThemeSearchPaths(iconPaths);
     }
 
-    const QString logoPath = QDir::homePath() + "/Downloads/logo.png";
+    const QString logoPath = logoFilePath();
     if (QFileInfo::exists(logoPath)) setWindowIcon(QIcon(logoPath));
     installDesktopIntegration();
 
@@ -306,7 +306,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     loadValues();
 
     // Re-apply the last picked theme + icon theme, if any.
-    const QString prefsPath = m_model->configPath() + "/hyprset-preferences.conf";
+    QString prefsPath = m_model->configPath() + "/hyprchange-preferences.conf";
+    if (!QFileInfo::exists(prefsPath)) prefsPath = m_model->configPath() + "/hyprset-preferences.conf";
     const QString savedStyle = prefsValue(prefsPath, "style");
     const QString savedIcons = prefsValue(prefsPath, "icons");
     if (!savedStyle.isEmpty()) {
@@ -337,7 +338,7 @@ static QString labelHint(const SettingSpec &s) {
 }
 
 void MainWindow::buildUi() {
-    setWindowTitle("Hyprland settings");
+    setWindowTitle("HyprChange");
     resize(820, 560);
 
     auto *central = new QWidget(this);
@@ -345,14 +346,14 @@ void MainWindow::buildUi() {
     root->setContentsMargins(12, 12, 12, 12);
 
     auto *header = new QHBoxLayout;
-    const QString logoPath = QDir::homePath() + "/Downloads/logo.png";
+    const QString logoPath = logoFilePath();
     if (QFileInfo::exists(logoPath)) {
         auto *logo = new QLabel;
         logo->setPixmap(QIcon(logoPath).pixmap(32, 32));
-        logo->setToolTip("HyprSet");
+        logo->setToolTip("HyprChange");
         header->addWidget(logo);
     }
-    auto *title = new QLabel(QString("Hyprland settings — editing %1").arg(m_model->configPath()));
+    auto *title = new QLabel(QString("HyprChange — editing %1").arg(m_model->configPath()));
     title->setTextInteractionFlags(Qt::TextSelectableByMouse);
     title->setStyleSheet("font-weight: 600; font-size: 14px;");
     header->addWidget(title);
@@ -543,7 +544,7 @@ void MainWindow::filterSpecRows(const QString &query) {
 
 void MainWindow::applyStyle(const QString &name) {
     if (m_themeCombo) {
-        QFile prefs(m_model->configPath() + "/hyprset-preferences.conf");
+        QFile prefs(m_model->configPath() + "/hyprchange-preferences.conf");
         if (prefs.open(QIODevice::WriteOnly | QIODevice::Text)) {
             prefs.write(name.toUtf8());
             prefs.close();
@@ -566,7 +567,7 @@ void MainWindow::applyStyle(const QString &name) {
 void MainWindow::applyIconTheme(int) {
     const QString name = m_iconThemeCombo->currentData().toString();
     QIcon::setThemeName(name.isEmpty() ? m_systemIconTheme : name);
-    writePrefs(m_model->configPath() + "/hyprset-preferences.conf",
+    writePrefs(m_model->configPath() + "/hyprchange-preferences.conf",
                m_themeCombo->currentData().toString(), name);
     if (m_status)
         m_status->setText(name.isEmpty() ? QString("Icons: system (%1)").arg(m_systemIconTheme)
@@ -580,12 +581,13 @@ void MainWindow::installDesktopIntegration() {
     if (!QFileInfo::exists(logo)) return;
 
     const QString iconFile =
-        QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/hyprset.png";
+        QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/hyprchange.png";
     QDir().mkpath(QFileInfo(iconFile).absolutePath());
     QFile::remove(iconFile);
     QFile::copy(logo, iconFile);
 
-    const QString desktopPath = QDir::homePath() + "/.local/share/applications/hyprset.desktop";
+    const QString desktopPath =
+        QDir::homePath() + "/.local/share/applications/hyprchange.desktop";
     QDir().mkpath(QFileInfo(desktopPath).absolutePath());
     const QString binPath = QCoreApplication::applicationFilePath();
     QFile df(desktopPath);
@@ -593,17 +595,20 @@ void MainWindow::installDesktopIntegration() {
         df.write(QString(
                      "[Desktop Entry]\n"
                      "Type=Application\n"
-                     "Name=HyprSet\n"
+                     "Name=HyprChange\n"
                      "Comment=Hyprland settings editor\n"
                      "Exec=%1\n"
-                     "Icon=hyprset\n"
+                     "Icon=hyprchange\n"
                      "Terminal=false\n"
                      "Categories=Settings;Utility;\n"
-                     "StartupWMClass=hyprset\n")
+                     "StartupWMClass=hyprchange\n")
                      .arg(binPath)
                      .toUtf8());
         df.close();
     }
+    // Remove stale entries from the former name.
+    QFile::remove(QDir::homePath() + "/.local/share/applications/hyprset.desktop");
+    QFile::remove(QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/hyprset.png");
 }
 
 void MainWindow::showChangesDialog(const QString &summary) {

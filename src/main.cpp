@@ -17,7 +17,8 @@ static QString appConfigDir() {
 int main(int argc, char *argv[]) {
     // Apply the persisted theme (GTK / KDE Plasma platform theme, icon theme)
     // before the QApplication exists.
-    QFile prefs(appConfigDir() + "/hyprset-preferences.conf");
+    QFile prefs(appConfigDir() + "/hyprchange-preferences.conf");
+    if (!prefs.exists()) prefs.setFileName(appConfigDir() + "/hyprset-preferences.conf"); // legacy
     if (prefs.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString style, icons;
         for (const QString &raw : QString::fromUtf8(prefs.readAll()).split('\n')) {
@@ -32,7 +33,7 @@ int main(int argc, char *argv[]) {
     }
 
     QApplication app(argc, argv);
-    app.setApplicationName("HyprSet");
+    app.setApplicationName("HyprChange");
 
     for (int i = 1; i < argc; ++i) {
         if (QString(argv[i]) == "--dump") {
