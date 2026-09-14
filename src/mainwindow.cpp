@@ -25,6 +25,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QMetaType>
+#include <QPalette>
 #include <QPlainTextEdit>
 #include <QPixmap>
 #include <QProcess>
@@ -362,6 +363,7 @@ void MainWindow::buildUi() {
     header->addWidget(new QLabel("Theme:"));
     m_themeCombo = new QComboBox;
     m_themeCombo->addItem("System", "System");
+    m_themeCombo->addItem("Dark", "Dark");
     m_themeCombo->addItem("Plain Qt (Fusion)", "Fusion");
     m_themeCombo->addItem("GTK", "GTK3");
     m_themeCombo->addItem("KDE Plasma (Breeze)", "Breeze");
@@ -543,17 +545,57 @@ void MainWindow::filterSpecRows(const QString &query) {
 }
 
 void MainWindow::applyStyle(const QString &name) {
-    if (m_themeCombo) {
-        QFile prefs(m_model->configPath() + "/hyprchange-preferences.conf");
-        if (prefs.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            prefs.write(name.toUtf8());
-            prefs.close();
-        }
+    if (m_themeCombo)
+        writePrefs(m_model->configPath() + "/hyprchange-preferences.conf", name,
+                   m_iconThemeCombo ? m_iconThemeCombo->currentData().toString() : QString());
+
+    if (name == "Dark") {
+        // Self-contained dark palette, so it works from an AppImage too
+        // (no reliance on system style/platform-theme plugins).
+        QStyle *fusion = QStyleFactory::create("Fusion");
+        if (fusion) qApp->setStyle(fusion);
+        QPalette p;
+        const QColor window(53, 53, 53);
+        const QColor base(35, 35, 35);
+        const QColor alt(60, 60, 60);
+        const QColor text(214, 214, 214);
+        const QColor accent(0, 122, 204);
+        p.setColor(QPalette::Window, window);
+        p.setColor(QPalette::WindowText, text);
+        p.setColor(QPalette::Base, base);
+        p.setColor(QPalette::AlternateBase, alt);
+        p.setColor(QPalette::ToolTipBase, base);
+        p.setColor(QPalette::ToolTipText, text);
+        p.setColor(QPalette::Text, text);
+        p.setColor(QPalette::Button, window);
+        p.setColor(QPalette::ButtonText, text);
+        p.setColor(QPalette::BrightText, QColor(255, 90, 90));
+        p.setColor(QPalette::Link, accent);
+        p.setColor(QPalette::Highlight, accent);
+        p.setColor(QPalette::HighlightedText, QColor(255, 255, 255));
+        p.setColor(QPalette::PlaceholderText, QColor(160, 160, 160));
+        p.setColor(QPalette::Disabled, QPalette::Text, QColor(127, 127, 127));
+        p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(127, 127, 127));
+        p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(127, 127, 127));
+        p.setColor(QPalette::Dark, window.darker(120));
+        p.setColor(QPalette::Light, QColor(90, 90, 90));
+        qApp->setPalette(p);
+        if (m_status) m_status->setText("Theme: Dark");
+        return;
     }
+
+    // Back to a normal (light) palette before applying the picked style.
+    qApp->setPalette(qApp->style()->standardPalette());
 
     QString style = name;
     if (style.isEmpty() || style == "System") style = m_systemStyleName;
     QStyle *chosen = QStyleFactory::create(style);
+    if (!chosen && style == "Breeze") {
+        // Breeze style ships with a system Qt/Qt-style package; in an AppImage
+        // it isn't there, so approximate with Fusion instead of doing nothing.
+        chosen = QStyleFactory::create("Fusion");
+        style = "Fusion";
+    }
     if (chosen) qApp->setStyle(chosen);
 
     if (style == "GTK3")

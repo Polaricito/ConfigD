@@ -20,7 +20,9 @@ and hot-reloads Hyprland so edits apply immediately.
   `hyprchange-backups/` in your config dir, so any change can be reverted even
   if you made it a while ago.
 - Raw text editors for the custom files, plus a Lua syntax validator (luac).
-- Theme & icon pickers (System / Fusion / GTK / KDE Plasma).
+- Theme & icon pickers, including a built-in **Dark** theme that works from the
+  AppImage too. GTK / KDE (Breeze) entries follow your system Qt integration
+  and are best with a pacman/system install.
 - `--dump` and `--export` CLI helpers for scripts and monitoring.
 
 ## Install

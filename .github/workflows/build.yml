@@ -55,6 +55,11 @@ jobs:
           cp /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqoffscreen.so \
              AppDir/usr/plugins/platforms/ 2>/dev/null || true
 
+          # Qt style plugins (Fusion & friends) are not auto-bundled; the app's
+          # theme picker needs them.
+          cp -r /usr/lib/x86_64-linux-gnu/qt6/plugins/styles AppDir/usr/plugins/ \
+             2>/dev/null || true
+
           PATH="$PWD/AppDir/usr/bin:$PATH" ./linuxdeploy \
             --appimage-extract-and-run --appdir AppDir --output appimage
 
