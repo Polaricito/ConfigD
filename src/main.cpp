@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QLibraryInfo>
 #include <QTextStream>
 
 #include "mainwindow.h"
@@ -27,8 +29,14 @@ int main(int argc, char *argv[]) {
             else if (line.startsWith("icons=")) icons = line.mid(6).trimmed();
             else if (style.isEmpty()) style = line; // legacy single-line value
         }
-        if (style == "GTK3") qputenv("QT_QPA_PLATFORMTHEME", "gtk3");
-        else if (style == "Breeze") qputenv("QT_QPA_PLATFORMTHEME", "kde");
+        if (style == "GTK3" &&
+            QFileInfo::exists(QLibraryInfo::path(QLibraryInfo::PluginsPath) +
+                              "/platformthemes/libqgtk3.so"))
+            qputenv("QT_QPA_PLATFORMTHEME", "gtk3");
+        else if (style == "Breeze" &&
+                 QFileInfo::exists(QLibraryInfo::path(QLibraryInfo::PluginsPath) +
+                                   "/platformthemes/KDEPlasmaPlatformTheme6.so"))
+            qputenv("QT_QPA_PLATFORMTHEME", "kde");
         if (!icons.isEmpty()) qputenv("QT_ICON_THEME", icons.toUtf8());
     }
 

@@ -2,6 +2,7 @@
 
 #include <QHash>
 #include <QMainWindow>
+#include <QStringList>
 #include <QVector>
 #include <QVariant>
 
@@ -67,6 +68,8 @@ private:
     QComboBox *m_iconThemeCombo = nullptr;
     QString m_systemStyleName;
     QString m_systemIconTheme;
+    QStringList m_navIconThemes; // themed names for the sidebar entries
+    QVector<int> m_navIconFalls; // SP_* fallbacks for them
     QDialog *m_changesDialog = nullptr;
     QPlainTextEdit *m_changesTxt = nullptr;
 

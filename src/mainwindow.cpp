@@ -21,6 +21,7 @@
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLibraryInfo>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
@@ -364,9 +365,29 @@ void MainWindow::buildUi() {
     m_themeCombo = new QComboBox;
     m_themeCombo->addItem("System", "System");
     m_themeCombo->addItem("Dark", "Dark");
-    m_themeCombo->addItem("Plain Qt (Fusion)", "Fusion");
-    m_themeCombo->addItem("GTK", "GTK3");
-    m_themeCombo->addItem("KDE Plasma (Breeze)", "Breeze");
+    // Only list the styles that can actually do something on this install:
+    // skip options that are unavailable or that equal the style already in use.
+    const QStringList styles = QStyleFactory::keys();
+    const auto isDefault = [&](const QString &name) {
+        return styles.contains(name, Qt::CaseInsensitive) &&
+               m_systemStyleName.compare(name, Qt::CaseInsensitive) != 0;
+    };
+    if (isDefault("Fusion"))
+        m_themeCombo->addItem("Plain Qt (Fusion)", "Fusion");
+    if (isDefault("Breeze"))
+        m_themeCombo->addItem("KDE Plasma (Breeze)", "Breeze");
+    // GTK is a platform theme, not a QStyle; it needs its Qt plugin present.
+    if (QFileInfo::exists(QLibraryInfo::path(QLibraryInfo::PluginsPath) +
+                          "/platformthemes/libqgtk3.so"))
+        m_themeCombo->addItem("GTK", "GTK3");
+    m_themeCombo->setToolTip(
+        "System and Dark always work. The rest only appear when their plugin "
+        "is available on this install.");
+    if (qEnvironmentVariableIsSet("HYPRCHANGE_DEBUG")) {
+        QStringList names;
+        for (int i = 0; i < m_themeCombo->count(); ++i) names << m_themeCombo->itemText(i);
+        fprintf(stderr, "system style: %s\ntheme options: %s\n", qPrintable(m_systemStyleName), qPrintable(names.join(", ")));
+    }
     connect(m_themeCombo, &QComboBox::currentIndexChanged, this,
             [this](int) { applyStyle(m_themeCombo->currentData().toString()); });
     header->addWidget(m_themeCombo);
@@ -420,6 +441,8 @@ void MainWindow::buildUi() {
         QStyle::SP_FileIcon,
     };
     for (int i = 0; i < m_nav->count() && i < themed.size(); ++i) {
+        m_navIconThemes << themed.at(i);
+        m_navIconFalls << static_cast<int>(fallbacks[i]);
         m_nav->item(i)->setIcon(
             QIcon::fromTheme(themed.at(i), style()->standardIcon(fallbacks[i])));
     }
@@ -609,6 +632,15 @@ void MainWindow::applyStyle(const QString &name) {
 void MainWindow::applyIconTheme(int) {
     const QString name = m_iconThemeCombo->currentData().toString();
     QIcon::setThemeName(name.isEmpty() ? m_systemIconTheme : name);
+    // Re-apply the themed sidebar icons so the new theme takes effect
+    // immediately; setThemeName alone would leave cached pixmaps in place.
+    for (int i = 0; i < m_nav->count() && i < m_navIconThemes.size(); ++i) {
+        m_nav->item(i)->setIcon(QIcon::fromTheme(
+            m_navIconThemes.at(i),
+            style()->standardIcon(
+                static_cast<QStyle::StandardPixmap>(m_navIconFalls.at(i)))));
+    }
+    m_nav->update();
     writePrefs(m_model->configPath() + "/hyprchange-preferences.conf",
                m_themeCombo->currentData().toString(), name);
     if (m_status)
